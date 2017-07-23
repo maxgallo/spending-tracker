@@ -5,6 +5,10 @@ const typeDefs = [`
        created: Date
     }
 
+    type Subscription {
+        paymentAdded: Payment
+    }
+
     type Query {
         currencies: [Currency]
         paymentMethods: [PaymentMethod]
@@ -52,6 +56,7 @@ const typeDefs = [`
     schema {
         query: Query
         mutation: Mutation
+        subscription: Subscription
     }
 `];
 

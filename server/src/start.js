@@ -7,6 +7,12 @@ import { GraphQLScalarType } from 'graphql';
 import { Kind } from 'graphql/language';
 import cors from 'cors'
 
+
+import { createServer } from 'http';
+import { execute, subscribe } from 'graphql';
+import { PubSub, withFilter } from 'graphql-subscriptions';
+import { SubscriptionServer } from 'subscriptions-transport-ws';
+
 import typeDefs from './typeDefs';
 import { URL, PORT, MONGO_URL } from './constants';
 
@@ -23,6 +29,8 @@ export const start = async () => {
         const PaymentMethod = db.collection('paymentMethod')
         const PaymentType = db.collection('paymentType')
         const Payment = db.collection('payment')
+
+        const pubsub = new PubSub();
 
 
         const resolvers = {
@@ -112,9 +120,26 @@ export const start = async () => {
                 },
                 createPayment: async (root, args) => {
                     const res = await Payment.insert(args)
-                    return prepare(await Payment.findOne({_id: res.insertedIds[0]}))
+                    const paymentJustAdded = await Payment.findOne({_id: res.insertedIds[0]});
+
+                    pubsub.publish('paymentAdded', { paymentAdded: paymentJustAdded});
+
+                    //return prepare(await Payment.findOne({_id: res.insertedIds[0]}))
+                    return paymentJustAdded;
                 }
             },
+            Subscription: {
+                paymentAdded: {
+                    subscribe: withFilter(
+                        () => pubsub.asyncIterator('paymentAdded'),
+                        (payload, variables) => {
+                            return true;
+                            //return payload.channelId === variables.channelId;
+                        }
+                    )
+                    //subscribe: () => pubsub.asyncIterator('paymentAdded'),
+                }
+            }
         }
 
         const schema = makeExecutableSchema({
@@ -132,9 +157,21 @@ export const start = async () => {
             endpointURL: '/graphql'
         }))
 
-        app.listen(PORT, () => {
-            console.log(`Visit ${URL}:${PORT}`)
-        })
+        //app.listen(PORT, () => {
+            //console.log(`Visit ${URL}:${PORT}`)
+        //})
+        const server = createServer(app);
+
+        server.listen(PORT, () => {
+            new SubscriptionServer({
+                execute,
+                subscribe,
+                schema
+            }, {
+                server: server,
+                path: '/subscriptions',
+            });
+        });
 
     } catch (e) {
         console.log(e)

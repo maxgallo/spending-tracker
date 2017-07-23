@@ -1,7 +1,7 @@
 {
   "name": "spending-tracker-client",
   "version": "0.1.0",
-  "private": true,
+  "author": "Max Gallo <massimiliano.gallo@gmail.com>",
   "dependencies": {
     "react": "^15.6.1",
     "react-dom": "^15.6.1"
